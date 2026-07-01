@@ -26,6 +26,7 @@ import { FSUtil } from "@opencode-ai/core/fs-util"
 import { isRecord } from "@/util/record"
 import { optional } from "@opencode-ai/core/schema"
 import { ProviderTransform } from "./transform"
+import { captureOmniRouteResponseMetadata } from "@/session/llm/response-metadata"
 import { ProviderV2 } from "@opencode-ai/core/provider"
 import { ModelV2 } from "@opencode-ai/core/model"
 import { ModelStatus } from "./model-status"
@@ -1728,6 +1729,8 @@ const layer = Layer.effect(
             // @ts-ignore see here: https://github.com/oven-sh/bun/issues/16682
             timeout: false,
           }).finally(() => headerTimeoutCtl?.clear())
+
+          captureOmniRouteResponseMetadata(opts.headers, res.headers)
 
           if (!chunkAbortCtl) return res
           return wrapSSE(res, chunkTimeout, chunkAbortCtl)

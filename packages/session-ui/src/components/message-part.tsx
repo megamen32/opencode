@@ -62,6 +62,14 @@ import { useLocation } from "@solidjs/router"
 import { attached, inline, kind } from "./message-file"
 import { readPartText } from "./message-part-text"
 
+function omnirouteResponseModel(metadata: unknown): string {
+  if (!metadata || typeof metadata !== "object") return ""
+  const omniroute = (metadata as Record<string, unknown>).omniroute
+  if (!omniroute || typeof omniroute !== "object") return ""
+  const value = (omniroute as Record<string, unknown>).responseModel
+  return typeof value === "string" ? value.trim() : ""
+}
+
 async function writeClipboard(text: string): Promise<boolean> {
   const body = typeof document === "undefined" ? undefined : document.body
   if (body) {
@@ -1569,12 +1577,14 @@ PART_MAPPING["text"] = function TextPartDisplay(props) {
     })
   })
 
+  const responseModel = createMemo(() => omnirouteResponseModel(part().metadata))
+
   const meta = createMemo(() => {
     if (props.message.role !== "assistant") return ""
     const agent = (props.message as AssistantMessage).agent
     const items = [
       agent ? agent[0]?.toUpperCase() + agent.slice(1) : "",
-      model(),
+      responseModel() ? `OmniRoute ${responseModel()}` : model(),
       duration(),
       interrupted() ? i18n.t("ui.message.interrupted") : "",
     ]

@@ -1452,6 +1452,14 @@ function UserMessage(props: {
   )
 }
 
+function omnirouteResponseModel(metadata: unknown): string {
+  if (!metadata || typeof metadata !== "object") return ""
+  const omniroute = (metadata as Record<string, unknown>).omniroute
+  if (!omniroute || typeof omniroute !== "object") return ""
+  const value = (omniroute as Record<string, unknown>).responseModel
+  return typeof value === "string" ? value.trim() : ""
+}
+
 function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; last: boolean }) {
   const ctx = use()
   const local = useLocal()
@@ -1459,6 +1467,11 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
   const sync = useSync()
   const messages = createMemo(() => sync.data.message[props.message.sessionID] ?? [])
   const model = createMemo(() => Model.name(ctx.providers(), props.message.providerID, props.message.modelID))
+  const responseModel = createMemo(() => {
+    const text = props.parts.find((part): part is TextPart => part.type === "text" && !!part.metadata)
+    return omnirouteResponseModel(text?.metadata)
+  })
+  const displayModel = createMemo(() => (responseModel() ? `OmniRoute ${responseModel()}` : model()))
 
   const final = createMemo(() => {
     return props.message.finish && !["tool-calls", "unknown"].includes(props.message.finish)
@@ -1546,7 +1559,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
                 ▣{" "}
               </span>{" "}
               <span style={{ fg: theme.text }}>{Locale.titlecase(props.message.mode)}</span>
-              <span style={{ fg: theme.textMuted }}> · {model()}</span>
+              <span style={{ fg: theme.textMuted }}> · {displayModel()}</span>
               <Show when={duration()}>
                 <span style={{ fg: theme.textMuted }}> · {Locale.duration(duration())}</span>
               </Show>

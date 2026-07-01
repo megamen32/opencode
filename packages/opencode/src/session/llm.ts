@@ -29,6 +29,7 @@ import * as OtelTracer from "@effect/opentelemetry/Tracer"
 import { LLMAISDK } from "./llm/ai-sdk"
 import { LLMNativeRuntime } from "./llm/native-runtime"
 import { LLMRequestPrep } from "./llm/request"
+import { responseMetadataKey } from "./llm/response-metadata"
 
 export const OUTPUT_TOKEN_MAX = ProviderTransform.OUTPUT_TOKEN_MAX
 
@@ -277,6 +278,7 @@ const live: Layer.Layer<
       // LLMAISDK.toLLMEvents below normalizes fullStream parts for the processor.
       return {
         type: "ai-sdk" as const,
+        responseMetadataKey: responseMetadataKey(prepared.headers),
         result: streamText({
           onError(error) {
             bridge.fork(
@@ -369,7 +371,7 @@ const live: Layer.Layer<
 
             // Adapter seam: both runtimes expose the same LLMEvent stream. Native
             // already returns one; AI SDK streams are converted here.
-            const state = LLMAISDK.adapterState()
+            const state = LLMAISDK.adapterState(result.responseMetadataKey)
             return Stream.fromAsyncIterable(result.result.fullStream, (e) =>
               e instanceof Error ? e : new Error(String(e)),
             ).pipe(

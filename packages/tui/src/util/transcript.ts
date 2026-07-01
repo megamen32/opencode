@@ -2,6 +2,14 @@ import type { AssistantMessage, Part, Provider, UserMessage } from "@opencode-ai
 import { Locale } from "./locale"
 import * as Model from "./model"
 
+function omnirouteResponseModel(metadata: unknown): string {
+  if (!metadata || typeof metadata !== "object") return ""
+  const omniroute = (metadata as Record<string, unknown>).omniroute
+  if (!omniroute || typeof omniroute !== "object") return ""
+  const value = (omniroute as Record<string, unknown>).responseModel
+  return typeof value === "string" ? value.trim() : ""
+}
+
 export type TranscriptOptions = {
   thinking: boolean
   toolDetails: boolean
@@ -54,7 +62,7 @@ export function formatMessage(
   if (msg.role === "user") {
     result += `## User\n\n`
   } else {
-    result += formatAssistantHeader(msg, options.assistantMetadata, providers ?? options.providers)
+    result += formatAssistantHeader(msg, options.assistantMetadata, providers ?? options.providers, parts)
   }
 
   for (const part of parts) {
@@ -68,6 +76,7 @@ export function formatAssistantHeader(
   msg: AssistantMessage,
   includeMetadata: boolean,
   providers?: Provider[] | ReadonlyMap<string, Provider>,
+  parts: Part[] = [],
 ): string {
   if (!includeMetadata) {
     return `## Assistant\n\n`
@@ -76,7 +85,9 @@ export function formatAssistantHeader(
   const duration =
     msg.time.completed && msg.time.created ? ((msg.time.completed - msg.time.created) / 1000).toFixed(1) + "s" : ""
 
-  const modelName = Model.name(providers, msg.providerID, msg.modelID)
+  const textPart = parts.find((part) => part.type === "text")
+  const responseModel = textPart && "metadata" in textPart ? omnirouteResponseModel(textPart.metadata) : ""
+  const modelName = responseModel ? `OmniRoute ${responseModel}` : Model.name(providers, msg.providerID, msg.modelID)
 
   return `## Assistant (${Locale.titlecase(msg.agent)} · ${modelName}${duration ? ` · ${duration}` : ""})\n\n`
 }
