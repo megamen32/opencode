@@ -153,6 +153,26 @@ describe("layout workspace helpers", () => {
     expect(result?.id).toBe("workspace")
   })
 
+  test("handles persisted session maps when finding root sessions", () => {
+    const result = latestRootSession(
+      [
+        {
+          path: { directory: "/workspace" },
+          session: {
+            mapRoot: session({
+              id: "mapRoot",
+              directory: "/workspace",
+              time: { created: 2, updated: 2, archived: undefined },
+            }),
+          },
+        } as never,
+      ],
+      120_000,
+    )
+
+    expect(result?.id).toBe("mapRoot")
+  })
+
   test("detects project permissions with a filter", () => {
     const result = hasProjectPermissions(
       {

@@ -26,8 +26,14 @@ function sortSessions(now: number) {
 const isRootVisibleSession = (session: Session, directory: string) =>
   pathKey(session.directory) === pathKey(directory) && !session.parentID && !session.time?.archived
 
+const sessionList = (session: SessionStore["session"] | Record<string, Session> | undefined): Session[] => {
+  if (Array.isArray(session)) return session
+  if (session && typeof session === "object") return Object.values(session).filter((item): item is Session => !!item?.id)
+  return []
+}
+
 export const roots = (store: SessionStore) =>
-  (store.session ?? []).filter((session) => isRootVisibleSession(session, store.path.directory))
+  sessionList(store.session).filter((session) => isRootVisibleSession(session, store.path.directory))
 
 export const sortedRootSessions = (store: SessionStore, now: number) => roots(store).sort(sortSessions(now))
 
