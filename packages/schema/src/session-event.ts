@@ -51,6 +51,14 @@ const stepSettlementOptions = {
 export const UnknownError = SessionMessage.UnknownError
 export type UnknownError = SessionMessage.UnknownError
 
+export const ResilienceRuntimeMetadata = Schema.Struct({
+  attempt: NonNegativeInt,
+  selectedModel: Schema.String,
+  actualModel: Schema.String,
+  fallbackUsed: Schema.Boolean,
+}).annotate({ identifier: "session.next.resilience.runtime.metadata" })
+export type ResilienceRuntimeMetadata = typeof ResilienceRuntimeMetadata.Type
+
 export const AgentSwitched = Event.define({
   type: "session.next.agent.switched",
   ...options,
@@ -155,6 +163,7 @@ export namespace Step {
       agent: Schema.String,
       model: Model.Ref,
       snapshot: Schema.String.pipe(optional),
+      resilience: ResilienceRuntimeMetadata.pipe(optional),
     },
   })
   export type Started = typeof Started.Type
@@ -178,6 +187,7 @@ export namespace Step {
       }),
       snapshot: Schema.String.pipe(optional),
       files: Schema.Array(RelativePath).pipe(optional),
+      resilience: ResilienceRuntimeMetadata.pipe(optional),
     },
   })
   export type Ended = typeof Ended.Type
@@ -189,6 +199,7 @@ export namespace Step {
       ...Base,
       assistantMessageID: SessionMessage.ID,
       error: UnknownError,
+      resilience: ResilienceRuntimeMetadata.pipe(optional),
     },
   })
   export type Failed = typeof Failed.Type

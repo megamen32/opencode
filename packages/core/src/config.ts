@@ -9,7 +9,7 @@ import { FSUtil } from "./fs-util"
 import { Global } from "./global"
 import { Location } from "./location"
 import { Policy } from "./policy"
-import { AbsolutePath } from "./schema"
+import { AbsolutePath, optional } from "./schema"
 import { ConfigAgent } from "./config/agent"
 import { ConfigAttachments } from "./config/attachments"
 import { ConfigCompaction } from "./config/compaction"
@@ -21,6 +21,7 @@ import { ConfigMCP } from "./config/mcp"
 import { ConfigPlugin } from "./config/plugin"
 import { ConfigProvider } from "./config/provider"
 import { ConfigReference } from "./config/reference"
+import { ConfigResilience } from "./config/resilience"
 import { ConfigToolOutput } from "./config/tool-output"
 import { ConfigWatcher } from "./config/watcher"
 import { ConfigV1 } from "./v1/config/config"
@@ -84,6 +85,11 @@ export class Info extends Schema.Class<Info>("Config.Info")({
   mcp: ConfigMCP.Info.pipe(Schema.optional).annotate({
     description: "MCP server configuration",
   }),
+  resilience: optional(ConfigResilience.Info)
+    .pipe(Schema.withDecodingDefault(Effect.succeed(ConfigResilience.DEFAULTS)))
+    .annotate({
+      description: "Provider and local tool resilience controls for V2 session execution",
+    }),
   compaction: ConfigCompaction.Info.pipe(Schema.optional).annotate({
     description: "Conversation compaction behavior",
   }),

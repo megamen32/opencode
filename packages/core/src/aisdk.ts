@@ -6,6 +6,8 @@ import { Cause, Context, Effect, Layer, Schema, Scope } from "effect"
 import { ModelV2 } from "./model"
 import { ProviderV2 } from "./provider"
 import { State } from "./state"
+import { Config } from "./config"
+import { ConfigResilience } from "./config/resilience"
 
 type SDK = any
 
@@ -71,13 +73,14 @@ function wrapSSE(res: Response, ms: number, ctl: AbortController) {
   })
 }
 
-function prepareOptions(model: ModelV2.Info, pkg: string) {
+function prepareOptions(model: ModelV2.Info, pkg: string, resilience: ConfigResilience.Info) {
   const options: Record<string, any> = {
     name: model.providerID,
     ...(model.api.type === "aisdk" ? (model.api.settings ?? {}) : {}),
     ...model.request.body,
   }
   if (model.api.type === "aisdk" && model.api.url) options.baseURL = model.api.url
+  if (ConfigResilience.isEnabledTimeout(resilience.responseTimeoutMs)) options.timeout = resilience.responseTimeoutMs
 
   const customFetch = options.fetch
   const chunkTimeout = options.chunkTimeout
@@ -196,6 +199,11 @@ export const locationLayer = Layer.effect(
       runSDK: (event) => run(sdkHooks, event),
       runLanguage: (event) => run(languageHooks, event),
       language: Effect.fn("AISDK.language")(function* (model) {
+        const config = yield* Effect.serviceOption(Config.Service)
+        const resilience =
+          config._tag === "Some"
+            ? ConfigResilience.fromEntries(yield* config.value.entries().pipe(Effect.catch(() => Effect.succeed([]))))
+            : ConfigResilience.DEFAULTS
         const key = `${model.providerID}/${model.id}/${model.request.variant ?? "default"}`
         const existing = languages.get(key)
         if (existing) return existing
@@ -205,7 +213,7 @@ export const locationLayer = Layer.effect(
             cause: new Error(`Unsupported api ${model.api.type}`),
           })
 
-        const options = prepareOptions(model, model.api.package)
+        const options = prepareOptions(model, model.api.package, resilience)
         const sdkKey = JSON.stringify({
           providerID: model.providerID,
           api: model.api,

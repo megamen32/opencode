@@ -2,6 +2,7 @@ import { ToolOutput, type LLMEvent, type ProviderMetadata, type ToolResultValue,
 import { DateTime, Effect } from "effect"
 import { EventV2 } from "../../event"
 import { ModelV2 } from "../../model"
+import { ConfigResilience } from "../../config/resilience"
 import { SessionEvent } from "../event"
 import { SessionMessage } from "../message"
 import { SessionSchema } from "../schema"
@@ -11,6 +12,7 @@ type Input = {
   readonly agent: string
   readonly model: ModelV2.Ref
   readonly snapshot?: string
+  readonly resilience?: ConfigResilience.RuntimeMetadata
 }
 
 const safe = (value: number | undefined) => Math.max(0, Number.isFinite(value) ? (value ?? 0) : 0)
@@ -80,6 +82,7 @@ export const createLLMEventPublisher = (events: EventV2.Interface, input: Input)
       assistantMessageID,
       timestamp: yield* timestamp,
       snapshot: input.snapshot,
+      resilience: input.resilience,
     })
     return assistantMessageID
   })
@@ -207,6 +210,7 @@ export const createLLMEventPublisher = (events: EventV2.Interface, input: Input)
       timestamp: yield* timestamp,
       assistantMessageID,
       error: { type: "unknown", message },
+      resilience: input.resilience,
     })
   })
 
