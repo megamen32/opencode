@@ -43,6 +43,32 @@
 
 ---
 
+## Roomhacker custom fork features
+
+This fork keeps the upstream OpenCode workflow and adds the following
+user-specific runtime and control surfaces:
+
+- **Configurable request resilience:** response timeout, local tool timeout,
+  retry count, delay between attempts, ordered fallback model IDs, and an
+  opt-in automatic resume switch. The defaults leave these controls disabled;
+  they are configured through the `resilience` config object.
+- **Actual-model provenance:** every resilient attempt carries the selected
+  model, the actual model used, attempt number, and whether a fallback was
+  used. This lets OpenChamber and other clients show the real combo route
+  instead of only the requested model.
+- **Recovery-ready session execution:** retry/fallback attempts preserve the
+  session event metadata and can continue eligible interrupted local runs when
+  `autoResume` is enabled.
+- **Direct Task/MCP tool surface:** experimental HTTP endpoints expose tool
+  discovery, callable tool IDs, direct tool calls, and session backgrounding
+  for clients such as OpenChamber's composer menu.
+
+Implementation: [`packages/core/src/config/resilience.ts`](packages/core/src/config/resilience.ts),
+[`packages/core/src/session/runner/llm.ts`](packages/core/src/session/runner/llm.ts),
+[`packages/core/src/session/execution/local.ts`](packages/core/src/session/execution/local.ts),
+[`packages/schema/src/session-event.ts`](packages/schema/src/session-event.ts), and
+[`packages/opencode/src/server/routes/instance/httpapi/groups/experimental.ts`](packages/opencode/src/server/routes/instance/httpapi/groups/experimental.ts).
+
 ### Installation
 
 ```bash
