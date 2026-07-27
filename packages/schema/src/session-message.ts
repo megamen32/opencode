@@ -5,7 +5,7 @@ import { optional } from "./schema"
 import { ProviderMetadata, ToolContent } from "./llm"
 import { Model } from "./model"
 import { FileAttachment, Prompt } from "./prompt"
-import { DateTimeUtcFromMillis, RelativePath, statics } from "./schema"
+import { DateTimeUtcFromMillis, NonNegativeInt, RelativePath, statics } from "./schema"
 import { SessionID } from "./session-id"
 import { ascending } from "./identifier"
 
@@ -161,12 +161,21 @@ export const AssistantContent = Schema.Union([AssistantText, AssistantReasoning,
 )
 export type AssistantContent = AssistantText | AssistantReasoning | AssistantTool
 
+export const ResilienceRuntimeMetadata = Schema.Struct({
+  attempt: NonNegativeInt,
+  selectedModel: Schema.String,
+  actualModel: Schema.String,
+  fallbackUsed: Schema.Boolean,
+}).annotate({ identifier: "Session.Message.ResilienceRuntimeMetadata" })
+export type ResilienceRuntimeMetadata = typeof ResilienceRuntimeMetadata.Type
+
 export interface Assistant extends Schema.Schema.Type<typeof Assistant> {}
 export const Assistant = Schema.Struct({
   ...Base,
   type: Schema.Literal("assistant"),
   agent: Schema.String,
   model: Model.Ref,
+  resilience: ResilienceRuntimeMetadata.pipe(optional),
   content: AssistantContent.pipe(Schema.Array),
   snapshot: Schema.Struct({
     start: Schema.String.pipe(optional),

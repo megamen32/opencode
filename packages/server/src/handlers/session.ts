@@ -1,5 +1,5 @@
 import { SessionV2 } from "@opencode-ai/core/session"
-import { DateTime, Effect, Stream } from "effect"
+import { Cause, DateTime, Effect, Stream } from "effect"
 import { HttpApiBuilder, HttpApiSchema } from "effect/unstable/httpapi"
 import { Api } from "../api"
 import { SessionsCursor } from "@opencode-ai/protocol/groups/session"
@@ -167,6 +167,30 @@ export const SessionHandler = HttpApiBuilder.group(Api, "server.session", (handl
                 ),
               ),
           }
+        }),
+      )
+      .handle(
+        "session.resume",
+        Effect.fn(function* (ctx) {
+          yield* session.resume(ctx.params.sessionID).pipe(
+            Effect.catchTag(
+              "Session.NotFoundError",
+              (error) =>
+                new SessionNotFoundError({
+                  sessionID: error.sessionID,
+                  message: `Session not found: ${error.sessionID}`,
+                }),
+            ),
+            Effect.catchCause((cause) =>
+              Effect.fail(
+                new UnknownError({
+                  message: String(Cause.squash(cause)),
+                  ref: `err_${crypto.randomUUID().slice(0, 8)}`,
+                }),
+              ),
+            ),
+          )
+          return HttpApiSchema.NoContent.make()
         }),
       )
       .handle(

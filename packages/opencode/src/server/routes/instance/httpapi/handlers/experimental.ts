@@ -7,6 +7,7 @@ import { RuntimeFlags } from "@/effect/runtime-flags"
 import { MCP } from "@/mcp"
 import { Project } from "@/project/project"
 import { Session } from "@/session/session"
+import { SessionPrompt } from "@/session/prompt"
 import type { SessionID } from "@/session/schema"
 import { ToolJsonSchema } from "@/tool/json-schema"
 import { ToolRegistry } from "@/tool/registry"
@@ -15,7 +16,7 @@ import { Effect, Option } from "effect"
 import * as HttpServerResponse from "effect/unstable/http/HttpServerResponse"
 import { HttpApiBuilder, HttpApiError } from "effect/unstable/httpapi"
 import { InstanceHttpApi } from "../api"
-import { ConsoleSwitchPayload, SessionListQuery, ToolListQuery, WorktreeApiError } from "../groups/experimental"
+import { ConsoleSwitchPayload, SessionListQuery, ToolCallPayload, ToolListQuery, WorktreeApiError } from "../groups/experimental"
 
 function mapWorktreeError<A, R>(self: Effect.Effect<A, Worktree.Error, R>) {
   return self.pipe(
@@ -33,6 +34,7 @@ export const experimentalHandlers = HttpApiBuilder.group(InstanceHttpApi, "exper
     const registry = yield* ToolRegistry.Service
     const worktreeSvc = yield* Worktree.Service
     const sessions = yield* Session.Service
+    const prompt = yield* SessionPrompt.Service
     const background = yield* BackgroundJob.Service
     const flags = yield* RuntimeFlags.Service
 
@@ -106,6 +108,20 @@ export const experimentalHandlers = HttpApiBuilder.group(InstanceHttpApi, "exper
 
     const toolIDs = Effect.fn("ExperimentalHttpApi.toolIDs")(function* () {
       return yield* registry.ids()
+    })
+
+    const callableToolIDs = Effect.fn("ExperimentalHttpApi.callableToolIDs")(function* () {
+      const mcpToolIDs = Object.keys(yield* mcp.tools())
+      const explicitToolIDs = (yield* registry.ids()).filter((id) => id.toLowerCase().includes("send_message"))
+      return [...new Set([...mcpToolIDs, ...explicitToolIDs])].sort()
+    })
+
+    const toolCall = Effect.fn("ExperimentalHttpApi.toolCall")(function* (ctx: {
+      payload: typeof ToolCallPayload.Type
+    }) {
+      return yield* prompt.callTool(ctx.payload).pipe(
+        Effect.catchCause(() => Effect.fail(new HttpApiError.BadRequest({}))),
+      )
     })
 
     const worktree = Effect.fn("ExperimentalHttpApi.worktree")(function* () {
@@ -182,6 +198,8 @@ export const experimentalHandlers = HttpApiBuilder.group(InstanceHttpApi, "exper
       .handle("consoleSwitch", switchConsole)
       .handle("tool", tool)
       .handle("toolIDs", toolIDs)
+      .handle("callableToolIDs", callableToolIDs)
+      .handle("toolCall", toolCall)
       .handle("worktree", worktree)
       .handle("worktreeCreate", worktreeCreate)
       .handle("worktreeRemove", worktreeRemove)

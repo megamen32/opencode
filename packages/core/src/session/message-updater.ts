@@ -199,6 +199,7 @@ export function update(adapter: Adapter, event: SessionEvent.Event) {
               type: "assistant",
               agent: event.data.agent,
               model: event.data.model,
+              resilience: event.data.resilience,
               time: { created: event.data.timestamp },
               content: [],
               snapshot: event.data.snapshot ? { start: event.data.snapshot } : undefined,
@@ -212,6 +213,7 @@ export function update(adapter: Adapter, event: SessionEvent.Event) {
           draft.finish = event.data.finish
           draft.cost = event.data.cost
           draft.tokens = event.data.tokens
+          if (event.data.resilience) draft.resilience = event.data.resilience
           if (event.data.snapshot || event.data.files)
             draft.snapshot = {
               ...draft.snapshot,
@@ -225,6 +227,7 @@ export function update(adapter: Adapter, event: SessionEvent.Event) {
           draft.time.completed = event.data.timestamp
           draft.finish = "error"
           draft.error = event.data.error
+          if (event.data.resilience) draft.resilience = event.data.resilience
         })
       },
       "session.next.text.started": (event) => {

@@ -106,6 +106,12 @@ export interface Interface {
   readonly shell: (input: ShellInput) => Effect.Effect<SessionV1.WithParts, Session.BusyError>
   readonly command: (input: CommandInput) => Effect.Effect<SessionV1.WithParts, Image.Error>
   readonly resolvePromptParts: (template: string) => Effect.Effect<PromptInput["parts"]>
+  readonly callTool: (input: {
+    sessionID: SessionID
+    tool: string
+    arguments: Record<string, unknown>
+    messageID?: MessageID
+  }) => Effect.Effect<Tool.ExecuteResult, unknown>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/SessionPrompt") {}
@@ -188,6 +194,57 @@ const layer = Layer.effect(
         { concurrency: "unbounded", discard: true },
       )
       return parts
+    })
+
+    const callTool = Effect.fn("SessionPrompt.callTool")(function* (input: {
+      sessionID: SessionID
+      tool: string
+      arguments: Record<string, unknown>
+      messageID?: MessageID
+    }) {
+      const session = yield* sessions.get(input.sessionID)
+      const messages = yield* sessions.messages({ sessionID: input.sessionID })
+      const assistant = messages.findLast((message) => message.info.role === "assistant")
+      if (!assistant || assistant.info.role !== "assistant") {
+        return yield* Effect.fail(new Error("Direct tool calls require an existing assistant turn"))
+      }
+
+      const agent = yield* agents.get(session.agent ?? assistant.info.agent ?? "build")
+      if (!agent) return yield* Effect.fail(new Error("The current session agent is not available"))
+      const model = yield* provider.getModel(
+        ProviderV2.ID.make(assistant.info.providerID),
+        ModelV2.ID.make(assistant.info.modelID),
+      )
+      const definitions = yield* registry.tools({
+        providerID: model.providerID,
+        modelID: ModelV2.ID.make(model.api.id),
+        agent,
+        permission: session.permission,
+      })
+      const definition = definitions.find((candidate) => candidate.id === input.tool)
+      if (!definition) return yield* Effect.fail(new Error(`Tool is not available: ${input.tool}`))
+
+      const messageID = input.messageID ?? assistant.info.id
+      const callID = `direct_${Date.now()}_${input.tool}`
+      return yield* definition.execute(input.arguments, {
+        sessionID: input.sessionID,
+        messageID,
+        agent: agent.name,
+        abort: new AbortController().signal,
+        callID,
+        extra: { bypassAgentCheck: true, promptOps: yield* ops() },
+        messages,
+        metadata: () => Effect.void,
+        ask: (request) =>
+          permission
+            .ask({
+              ...request,
+              sessionID: input.sessionID,
+              tool: { messageID, callID },
+              ruleset: Permission.merge(agent.permission, session.permission ?? []),
+            })
+            .pipe(Effect.orDie),
+      })
     })
 
     const title = Effect.fn("SessionPrompt.ensureTitle")(function* (input: {
@@ -1487,6 +1544,7 @@ const layer = Layer.effect(
       shell,
       command,
       resolvePromptParts,
+      callTool,
     })
   }),
 )

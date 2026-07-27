@@ -51,12 +51,9 @@ const stepSettlementOptions = {
 export const UnknownError = SessionMessage.UnknownError
 export type UnknownError = SessionMessage.UnknownError
 
-export const ResilienceRuntimeMetadata = Schema.Struct({
-  attempt: NonNegativeInt,
-  selectedModel: Schema.String,
-  actualModel: Schema.String,
-  fallbackUsed: Schema.Boolean,
-}).annotate({ identifier: "session.next.resilience.runtime.metadata" })
+export const ResilienceRuntimeMetadata = SessionMessage.ResilienceRuntimeMetadata.annotate({
+  identifier: "session.next.resilience.runtime.metadata",
+})
 export type ResilienceRuntimeMetadata = typeof ResilienceRuntimeMetadata.Type
 
 export const AgentSwitched = Event.define({

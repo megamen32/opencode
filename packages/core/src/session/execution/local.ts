@@ -6,6 +6,8 @@ import { SessionRunner } from "../runner"
 import { SessionSchema } from "../schema"
 import { SessionStore } from "../store"
 import { SessionExecution } from "../execution"
+import { Config } from "../../config"
+import { ConfigResilience } from "../../config/resilience"
 
 /** Current-process routing for implicit-local Locations. Future remote placement belongs here. */
 const layer = Layer.effect(
@@ -17,8 +19,19 @@ const layer = Layer.effect(
       drain: Effect.fnUntraced(function* (sessionID: SessionSchema.ID, force) {
         const session = yield* store.get(sessionID)
         if (!session) return yield* Effect.die(`Session not found: ${sessionID}`)
-        return yield* SessionRunner.Service.use((runner) => runner.run({ sessionID, force })).pipe(
-          Effect.provide(locations.get(session.location)),
+        const location = locations.get(session.location)
+        return yield* Effect.gen(function* () {
+          const first = yield* SessionRunner.Service.use((runner) => runner.run({ sessionID, force })).pipe(Effect.exit)
+          if (first._tag === "Success") return first.value
+
+          const config = yield* Config.Service
+          const resilience = ConfigResilience.fromEntries(yield* config.entries())
+          if (!resilience.autoResume) return yield* Effect.failCause(first.cause)
+
+          yield* Effect.logWarning("Auto-resuming failed Session execution", { sessionID })
+          return yield* SessionRunner.Service.use((runner) => runner.run({ sessionID, force: true }))
+        }).pipe(
+          Effect.provide(location),
           Effect.tapCause((cause) =>
             Cause.hasInterruptsOnly(cause)
               ? Effect.void

@@ -48,12 +48,18 @@ export const ConsoleSwitchPayload = Schema.Struct({
 })
 
 const ToolIDs = Schema.Array(Schema.String).annotate({ identifier: "ToolIDs" })
+const CallableToolIDs = Schema.Array(Schema.String).annotate({ identifier: "CallableToolIDs" })
 const ToolListItem = Schema.Struct({
   id: Schema.String,
   description: Schema.String,
   parameters: Schema.Unknown,
 }).annotate({ identifier: "ToolListItem" })
 const ToolList = Schema.Array(ToolListItem).annotate({ identifier: "ToolList" })
+export const ToolCallPayload = Schema.Struct({
+  sessionID: SessionID,
+  tool: Schema.String,
+  arguments: Schema.Record(Schema.String, Schema.Unknown),
+})
 export const ToolListQuery = Schema.Struct({
   ...WorkspaceRoutingQueryFields,
   provider: ProviderV2.ID,
@@ -94,6 +100,8 @@ export const ExperimentalPaths = {
   consoleSwitch: "/experimental/console/switch",
   tool: "/experimental/tool",
   toolIDs: "/experimental/tool/ids",
+  toolCall: "/experimental/tool/call",
+  callableToolIDs: "/experimental/tool/callable-ids",
   worktree: "/experimental/worktree",
   worktreeReset: "/experimental/worktree/reset",
   session: "/experimental/session",
@@ -171,6 +179,29 @@ export const ExperimentalApi = HttpApi.make("experimental")
             summary: "List tool IDs",
             description:
               "Get a list of all available tool IDs, including both built-in tools and dynamically registered tools.",
+          }),
+        ),
+        HttpApiEndpoint.post("toolCall", ExperimentalPaths.toolCall, {
+          query: WorkspaceRoutingQuery,
+          payload: ToolCallPayload,
+          success: Schema.Unknown,
+          error: HttpApiError.BadRequest,
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "tool.call",
+            summary: "Call tool",
+            description: "Execute one available Task or MCP/plugin tool with explicit JSON arguments.",
+          }),
+        ),
+        HttpApiEndpoint.get("callableToolIDs", ExperimentalPaths.callableToolIDs, {
+          query: WorkspaceRoutingQuery,
+          success: described(CallableToolIDs, "Callable Task and MCP tool IDs"),
+          error: HttpApiError.BadRequest,
+        }).annotateMerge(
+          OpenApi.annotations({
+            identifier: "tool.callableIds",
+            summary: "List callable Task and MCP tool IDs",
+            description: "List MCP and explicit send_message tool IDs safe for direct user invocation.",
           }),
         ),
         HttpApiEndpoint.get("worktree", ExperimentalPaths.worktree, {

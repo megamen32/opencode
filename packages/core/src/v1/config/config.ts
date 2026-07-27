@@ -16,6 +16,7 @@ import { ConfigPluginV1 } from "./plugin"
 import { ConfigProviderV1 } from "./provider"
 import { ConfigServerV1 } from "./server"
 import { ConfigSkillsV1 } from "./skills"
+import { ConfigResilience } from "../../config/resilience"
 
 export type Layout = ConfigLayoutV1.Layout
 
@@ -145,6 +146,9 @@ export const Info = Schema.Struct({
   ).annotate({
     description:
       "Thresholds for truncating tool output. When output exceeds either limit, the full text is written to the truncation directory and a preview is returned.",
+  }),
+  resilience: Schema.optional(ConfigResilience.Info).annotate({
+    description: "Provider retry, timeout, automatic resume, and ordered fallback settings.",
   }),
   compaction: Schema.optional(
     Schema.Struct({
